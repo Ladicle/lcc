@@ -7,6 +7,7 @@
 enum {
   TK_NUM = 256,			/* number token */
   TK_EOF,			/* input terminal */
+  ND_NUM = 256,			/* number node */
 };
 
 // Token type
@@ -16,8 +17,74 @@ typedef struct {
   char *input;			/* token string(error message) */
 } Token;
 
+typedef struct Node {
+  int ty;
+  struct Node *lhs;
+  struct Node *rhs;
+  int val;			/* use this value if ty is ND_NUM */
+} Node;
+
 // Tokenized token array (max: 100)
 Token tokens[100];
+
+// tokenizer position
+int pos;
+
+Node *new_node(int ty, Node *lhs, Node *rhs);
+Node *new_node_num(int);
+Node *term();
+Node *mul();
+Node *expr();
+void tokenize(char *p);
+void error();
+
+Node *new_node(int ty, Node *lhs, Node *rhs) {
+  Node *node = malloc(sizeof(Node));
+  node->ty = ty;
+  node->lhs = lhs;
+  node->rhs = rhs;
+  return node;
+}
+
+Node *new_node_num(int val) {
+  Node *node = malloc(sizeof(Node));
+  node->ty = ND_NUM;
+  node->val = val;
+  return node;
+}
+
+Node *term() {
+  if (tokens[pos].ty == ND_NUM)
+    return new_node_num(tokens[pos++].val);
+  if (tokens[pos].ty == '(') {
+    pos++;
+    Node *node = expr();
+    if (tokens[pos].ty != ')')
+      error();
+    pos++;
+    return node;
+  }
+  error();
+  return NULL;
+}
+
+Node *mul() {
+  Node *lhs = term();
+  if (tokens[pos].ty == '*' || tokens[pos].ty == '/') {
+    pos++;
+    return new_node(tokens[pos].ty, lhs, mul());
+  }
+  return lhs;
+}
+
+Node *expr() {
+  Node *lhs = mul();
+  if (tokens[pos].ty == '+' || tokens[pos].ty == '-') {
+    pos++;
+    return new_node(tokens[pos].ty, lhs, expr());
+  }
+  return lhs;
+}
 
 // divide string argument into the tokens
 void tokenize(char *p) {

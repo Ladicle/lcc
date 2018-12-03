@@ -71,18 +71,20 @@ Node *term() {
 
 Node *mul() {
   Node *lhs = term();
-  if (tokens[pos].ty == '*' || tokens[pos].ty == '/') {
+  int ty = tokens[pos].ty;
+  if (ty == '*' || ty == '/') {
     pos++;
-    return new_node(tokens[pos].ty, lhs, mul());
+    return new_node(ty, lhs, mul());
   }
   return lhs;
 }
 
 Node *expr() {
   Node *lhs = mul();
-  if (tokens[pos].ty == '+' || tokens[pos].ty == '-') {
+  int ty = tokens[pos].ty;
+  if (ty == '+' ||ty == '-') {
     pos++;
-    return new_node(tokens[pos].ty, lhs, expr());
+    return new_node(ty, lhs, expr());
   }
   return lhs;
 }
@@ -112,6 +114,9 @@ void gen(Node *node) {
   case '/':
     printf("  mov rdx, 0\n");
     printf("  div rdi\n");
+    break;
+  default:
+    printf("  ??? %c\n", node->ty);
   }
 
   printf("  push rax\n");
@@ -127,7 +132,7 @@ void tokenize(char *p) {
       continue;
     }
 
-    if (*p == '+' || *p == '-') {
+    if (*p == '+' || *p == '-' || *p == '*' || *p == '/' || *p == '(' || *p == ')') {
       tokens[i].ty = *p;
       tokens[i].input = p;
       i++;
@@ -136,7 +141,7 @@ void tokenize(char *p) {
     }
 
     if (isdigit(*p)) {
-      tokens[i].ty = TK_NUM;
+      tokens[i].ty = ND_NUM;
       tokens[i].input = p;
       tokens[i].val = strtol(p, &p, 10);
       i++;
@@ -151,9 +156,9 @@ void tokenize(char *p) {
   tokens[i].input = p;
 }
 
-void error(int i) {
+void error() {
   fprintf(stderr, "unexpected token: %s\n",
-	  tokens[i].input);
+	  tokens[pos].input);
   exit(1);
 }
 
@@ -164,42 +169,15 @@ int main(int argc, char **argv) {
   }
 
   tokenize(argv[1]);
-
-  char *p = argv[1];
+  Node* node = expr();
 
   printf(".intel_syntax noprefix\n");
   printf(".global main\n");
   printf("main:\n");
 
-  // first token must be number.
-  if (tokens[0].ty != TK_NUM)
-    error(0);
-  printf("  mov rax, %ld\n", strtol(p, &p, 10));
+  gen(node);
 
-  // perse exp(+/-) and output code
-  int i = 1;
-  while (tokens[i].ty != TK_EOF) {
-    if (tokens[i].ty == '+') {
-      i++;
-      if (tokens[i].ty != TK_NUM)
-	error(i);
-      printf("  add rax, %d\n", tokens[i].val);
-      i++;
-      continue;
-    }
-
-    if (tokens[i].ty == '-') {
-      i++;
-      if (tokens[i].ty != TK_NUM)
-	error(i);
-      printf("  sub rax, %d\n", tokens[i].val);
-      i++;
-      continue;
-    }
-
-    error(i);
-  }
-
+  printf("  pop rax\n");
   printf("  ret\n");
   return 0;
 }

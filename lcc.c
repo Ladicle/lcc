@@ -6,6 +6,7 @@
 // Token type values
 enum {
   TK_NUM = 256,			/* number token */
+  TK_INDENT,			/* identification */
   TK_EOF,			/* input terminal */
   ND_NUM = 256,			/* number node */
 };
@@ -145,6 +146,14 @@ void tokenize(char *p) {
       tokens[i].input = p;
       tokens[i].val = strtol(p, &p, 10);
       i++;
+      continue;
+    }
+
+    if ('a' <= *p && *p <= 'z') {
+      tokens[i].ty = TK_INDENT;
+      tokens[i].input = p;
+      i++;
+      p++;
       continue;
     }
 

@@ -1,0 +1,17 @@
+program: assign ";" program
+program: ε                      # do nothing
+
+assign: add
+assign: add "=" assign
+
+add: mul
+add: add "+" mul
+add: add "-" mul
+
+mul: term
+mul: mul "*" term
+mul: mul "/" term
+
+term: num
+term: ident
+term: "(" add ")"

@@ -9,6 +9,7 @@ enum {
   TK_INDENT,			/* identification */
   TK_EOF,			/* input terminal */
   ND_NUM = 256,			/* number node */
+  ND_IDENT,
 };
 
 // Token type
@@ -23,19 +24,25 @@ typedef struct Node {
   struct Node *lhs;
   struct Node *rhs;
   int val;			/* use this value if ty is ND_NUM */
+  char name;			/* use this value if ty is ND_IDENT */
 } Node;
 
 // Tokenized token array (max: 100)
 Token tokens[100];
+Node *code[100];
 
 // tokenizer position
 int pos;
 
 Node *new_node(int ty, Node *lhs, Node *rhs);
 Node *new_node_num(int);
+Node *new_node_ident(char);
 Node *term();
 Node *mul();
-Node *expr();
+Node *add();
+Node *assign();
+void program();
+int consume(int ty);
 void tokenize(char *p);
 void error();
 void gen(Node *node);
@@ -45,6 +52,13 @@ Node *new_node(int ty, Node *lhs, Node *rhs) {
   node->ty = ty;
   node->lhs = lhs;
   node->rhs = rhs;
+  return node;
+}
+
+Node *new_node_ident(char name) {
+  Node *node = malloc(sizeof(Node));
+  node->ty = ND_IDENT;
+  node->name = name;
   return node;
 }
 
@@ -58,6 +72,8 @@ Node *new_node_num(int val) {
 Node *term() {
   if (tokens[pos].ty == ND_NUM)
     return new_node_num(tokens[pos++].val);
+  if (tokens[pos].ty == ND_IDENT)
+    return new_node_ident(tokens[pos++].val);
   if (tokens[pos].ty == '(') {
     pos++;
     Node *node = expr();
@@ -80,14 +96,34 @@ Node *mul() {
   return lhs;
 }
 
-Node *expr() {
+Node *add() {
   Node *lhs = mul();
   int ty = tokens[pos].ty;
   if (ty == '+' ||ty == '-') {
     pos++;
-    return new_node(ty, lhs, expr());
+    return new_node(ty, lhs, add());
   }
   return lhs;
+}
+
+Node *assign() {
+  Node *lhs = add();
+  int ty = tokens[pos].ty;
+  if (ty == '=') {
+    pos++;
+    return new_node(ty, lhs, assign());
+  }
+  return lhs;
+}
+
+void program() {
+  int i = 0;
+  while (tokens[pos].ty != TK_EOF) {
+    code[i++] = assign();
+    if (!consume(';'))
+      error("token is not ';': %s", tokens[pos].input);
+  }
+  code[i] = NULL;
 }
 
 void gen(Node *node) {
@@ -123,6 +159,13 @@ void gen(Node *node) {
   printf("  push rax\n");
 }
 
+int consume(int ty) {
+  if (tokens[pos].ty != ty)
+    return 0;
+  pos++;
+  return 1;
+}
+
 // divide string argument into the tokens
 void tokenize(char *p) {
   int i = 0;
@@ -150,7 +193,7 @@ void tokenize(char *p) {
     }
 
     if ('a' <= *p && *p <= 'z') {
-      tokens[i].ty = TK_INDENT;
+      tokens[i].ty = ND_IDENT;
       tokens[i].input = p;
       i++;
       p++;
